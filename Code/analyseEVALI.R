@@ -107,15 +107,21 @@ mean(noise)/sd(noise)
 (1-sd(na.omit(decompose(noise)$random))/sd(noise) )*100
 
 # Check for stationarity
+png("Figures/sensitivityAnalysis.png", width = 600, height = 900)
 par(mfrow=c(2,1))
-acf(noise,main="Sensitivity analysis of vape sales")
-pacf(noise,main="Sensitivity analysis of vape sales")
-print(acf(noise,main="Sensitivity analysis of vape sales"))
-print(pacf(noise,main="Sensitivity analysis of vape sales"))
+acf(noise,main="Sensitivity Analysis of Vape Sales")
+pacf(noise, main = " ")
+print(acf(noise,main="Sensitivity Analysis of Vape Sales"))
+print(pacf(noise, main = " "))
+dev.off()
 
 # unit root test for stationarity
 adf.test(noise)
 # large p values, differencing not required. 
+
+#durbin watson test
+dbmodel <- lm(log(revenueV) ~ log(revenueC)+vapeHospCat + X, data=preDat)
+dwtest(dbmodel)
 
 ## fit autoregressive moving average models for the noise series. Use auto to detect the model based on AIC and BIC
 arima_aic <- auto.arima(noise,trace=TRUE,test="kpss",ic="aic")
@@ -146,13 +152,18 @@ forecast1 <- as.data.frame(forecast)
 ggplot(preDat, aes(x=X)) + 
   geom_line(aes(y=log(revenueV))) +
   geom_ribbon(data = forecast1, aes(x = c(34:52), ymin = `Lo 95`, ymax = `Hi 95`), fill = "grey70") +
-geom_line(data = forecast1, aes(x = c(34:52), y=`Point Forecast`), color = "blue") +
-geom_line(data = itsData[34:52,], aes(x = c(34:52), y = log(revenueV)), linetype = "dashed", color="red") +
+geom_line(data = forecast1, aes(x = c(34:52), y=`Point Forecast`), color = "red", linetype = "dashed") +
+geom_line(data = itsData[34:52,], aes(x = c(34:52), y = log(revenueV)), color="black") +
+  annotate("segment", x = 33.5, xend = 33.5, y = 18.6, yend = 19.2, linetype = "dotted", colour = "black", size = 1) +
+  annotate("text", x = 33.5, y = 19.23, label = "CDC announces \nEVALI investigation", size = 3) +
+  #geom_vline(xintercept = 33.5, linetype = "dotted") +
   scale_x_continuous(name = "Weeks", 
                      breaks = seq(1,53,4),
                      labels = c("30 Dec 2018 \n(Week 1)", "27 Jan 2019 \n(Week 5)", "24 Feb 2019 \n(Week 9)", "24 Mar 2019 \n(Week 13)", "21 Apr 2019 \n(Week 17)", "19 May 2019 \n(Week 21)", "16 Jun 2019 \n(Week 25)", " 14 Jul 2019 \n(Week 29)", "11 Aug 2019 \n(Week 33)", "8 Sep 2019 \n(Week 37)", "6 Oct 2019 \n(Week 41)", "3 Nov 2019 \n(Week 45)", "1 Dec 2019 \n(Week 49)", "22 Dec 2019 \n(Week 52)")) + 
   scale_y_continuous(name = "Log vape sales",
                      breaks = seq(18.6, 19.6, 0.1)) +
+  annotate("text", x = 51, y = 19.23, label = "Forecasted \nsales", size = 3) +
+  annotate("text", x = 51, y = 18.83, label = "Actual \nsales", size = 3) +
   theme(legend.title = element_blank(),
         legend.position = "none",
         axis.text.x = element_text(angle = 45, hjust = 1),
@@ -217,7 +228,6 @@ confint(fitTSV, level = 0.95)
 coeftest(fitTSV)
 
 
-
 # Graphs ------------------------------------------------------------------
 par(mfrow=c(1,1))
 plot(fitTSV)
@@ -252,3 +262,14 @@ ggplot(evaliITS, aes(x=X)) +
         panel.border = element_rect(colour = "black", fill=NA, size=.5),
         plot.margin=unit(c(0.75,0.75,0.75,0.75),"cm"))
 ggsave("Figures/evaliITS.png", width=9, height=6)
+
+
+# Fitting a 2nd order model for comparison --------------------------------
+fitTSV <- Arima(tsVapeSalesV, 
+                order = c(2,1,0),
+                xreg = cbind(vapeHospCatV, lCigSalesV, WeeksV, cdcEvali, trumpBan, fdaTHC, acetate, IcdcEvali, ItrumpBan, IfdaTHC, Iacetate), 
+                include.constant = F)
+
+summary(fitTSV)
+confint(fitTSV, level = 0.95)
+coeftest(fitTSV)
